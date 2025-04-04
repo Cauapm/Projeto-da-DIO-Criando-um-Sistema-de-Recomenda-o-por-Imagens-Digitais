@@ -1,0 +1,75 @@
+# Etapa 1: Instalar dependências (executar no Colab)
+!pip install annoy tqdm --quiet
+import os
+import glob
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+from tqdm import tqdm
+from IPython.display import display
+from tensorflow.keras.applications.mobilenet_v2 import MobileNetV2, preprocess_input
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.models import Model
+from annoy import AnnoyIndex
+from google.colab import files
+
+# Etapa 2: Carregar modelo MobileNetV2
+base_model = MobileNetV2(weights='imagenet', include_top=False, pooling='avg')
+model = Model(inputs=base_model.input, outputs=base_model.output)
+
+# Etapa 3: Funções de utilidade
+def preprocess_img(img_path):
+    img = image.load_img(img_path, target_size=(224, 224))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    return preprocess_input(x)
+
+def extract_vector(img_path):
+    x = preprocess_img(img_path)
+    vec = model.predict(x)[0]
+    return vec
+
+# Etapa 4: Preparar imagens do dataset (local)
+!mkdir -p images
+# Suba apenas algumas imagens localmente para testar
+uploaded = files.upload()
+for name in uploaded.keys():
+    os.rename(name, f"images/{name}")
+
+image_paths = glob.glob("images/*.jpg")[:1000]  # Limitando a 1000
+print(f"Total de imagens usadas: {len(image_paths)}")
+
+# Etapa 5: Construir índice
+dims = 1280
+ann = AnnoyIndex(dims, 'angular')
+index_to_path = {}
+
+print("Extraindo vetores...")
+for idx, img_path in enumerate(tqdm(image_paths)):
+    try:
+        vec = extract_vector(img_path)
+        ann.add_item(idx, vec)
+        index_to_path[idx] = img_path
+    except:
+        pass
+
+ann.build(10)
+
+# Etapa 6: Upload da imagem de consulta
+print("Envie uma imagem para buscar similares:")
+uploaded = files.upload()
+query_img_path = list(uploaded.keys())[0]
+
+# Etapa 7: Buscar similares
+query_vec = extract_vector(query_img_path)
+neighbors = ann.get_nns_by_vector(query_vec, 5)
+
+# Etapa 8: Mostrar resultados
+plt.figure(figsize=(15, 5))
+for i, idx in enumerate(neighbors):
+    img = Image.open(index_to_path[idx])
+    plt.subplot(1, 5, i+1)
+    plt.imshow(img)
+    plt.title(f"Similar {i+1}")
+    plt.axis('off')
+plt.show()
