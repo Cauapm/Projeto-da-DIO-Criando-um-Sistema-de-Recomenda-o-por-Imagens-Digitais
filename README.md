@@ -1,1 +1,1 @@
-# Projeto-da-DIO-Criando-um-Sistema-de-Recomenda-o-por-Imagens-Digitais
+Este projeto permite a busca por similaridade física em um dataset de produtos de moda usando MobileNetV2 para extração de características e Annoy para indexação e busca rápida. Você pode enviar qualquer imagem e o sistema retornará os produtos visualmente mais parecidos do dataset.
